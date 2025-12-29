@@ -27,7 +27,8 @@ def inicializar_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT, cargo TEXT, email TEXT UNIQUE, telefone TEXT,
         especializacoes TEXT, senha_hash TEXT, nivel_acesso TEXT,
-        permissoes_json TEXT)''')
+        permissoes_json TEXT,
+        primeiro_acesso INTEGER DEFAULT 1)''') # <--- ADICIONE ESTA LINHA
     
     # Tabela de Estoque (Margem Vermelha)
     cursor.execute('''CREATE TABLE IF NOT EXISTS estoque (
