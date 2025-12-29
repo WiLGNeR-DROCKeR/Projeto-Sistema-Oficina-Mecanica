@@ -115,9 +115,10 @@ else:
         st.header("Bem-vindo ao OficinaPro")
         st.write("Selecione uma opção no menu lateral para começar.")
 
-    else:
+    elif aba == "Ordens de Serviço": # Alterado de 'else' para 'elif' específico
             # --- INÍCIO DA NOVA TELA DO MECÂNICO ---
-            st.subheader(f"Área Técnica - Mecânico: {st.session_state.nome_usuario}")
+            nome_usuario = st.session_state.get('nome_usuario', 'Administrador')
+            st.subheader(f"Área Técnica - Responsável: {nome_usuario}")
             
             # 1. Formulário para abrir nova Ordem de Serviço
             with st.expander("➕ Abrir Nova Ordem de Serviço (Laudo e Peças)"):
@@ -131,7 +132,7 @@ else:
                         ano = st.text_input("Ano")
                     
                     problema = st.text_area("Descrição do Defeito / Diagnóstico Técnico")
-                    pecas_sugeridas = st.text_area("Peças Necessárias e Marcas Sugeridas (Ex: 2x Amortecedor Monroe)")
+                    pecas_sugeridas = st.text_area("Peças Necessárias e Marcas Sugeridas")
                     
                     if st.form_submit_button("Enviar para Aprovação do Administrador"):
                         if modelo and placa and problema:
@@ -143,41 +144,35 @@ else:
                                     (carro_modelo, carro_placa, carro_ano, descricao_problema, 
                                      pecas_sugeridas_mecanico, id_mecanico, status_solicitacao) 
                                     VALUES (?, ?, ?, ?, ?, ?, ?)""", 
-                                    (modelo, placa, ano, problema, pecas_sugeridas, st.session_state.nome_usuario, "Pendente"))
+                                    (modelo, placa, ano, problema, pecas_sugeridas, nome_usuario, "Pendente"))
                                 conn.commit()
-                                st.success("✅ Ordem de Serviço registrada! Aguarde a liberação das peças pelo Admin.")
+                                st.success("✅ Ordem de Serviço registrada!")
                             except Exception as e:
                                 st.error(f"Erro ao salvar: {e}")
                             finally:
                                 conn.close()
                         else:
-                            st.warning("Por favor, preencha o Modelo, Placa e Diagnóstico.")
+                            st.warning("Preencha os campos obrigatórios.")
 
             st.write("---")
             
-            # 2. Listagem de serviços para o mecânico acompanhar
-            st.subheader("🛠️ Meus Serviços em Andamento")
+            # 2. Listagem de serviços
+            st.subheader("🛠️ Serviços em Andamento")
             conn = conectar()
-            # Filtra apenas os serviços deste mecânico
-            query = f"SELECT id, carro_modelo, carro_placa, status_solicitacao, valor_comissao FROM ordens_servico WHERE id_mecanico = '{st.session_state.nome_usuario}'"
+            query = f"SELECT id, carro_modelo, carro_placa, status_solicitacao, valor_comissao FROM ordens_servico WHERE id_mecanico = '{nome_usuario}'"
             df_servicos = pd.read_sql_query(query, conn)
             conn.close()
 
             if not df_servicos.empty:
-                # Melhora o visual da tabela
-                df_servicos.columns = ["ID", "Veículo", "Placa", "Status Peças", "Minha Comissão (R$)"]
+                df_servicos.columns = ["ID", "Veículo", "Placa", "Status Peças", "Comissão (R$)"]
                 st.dataframe(df_servicos, use_container_width=True, hide_index=True)
             else:
-                st.info("Você ainda não possui ordens de serviço registradas.")
-            # --- FIM DA NOVA TELA DO MECÂNICO ---
+                st.info("Nenhuma ordem de serviço encontrada.")
 
-    elif aba == "Estoque":
+    elif aba == "Estoque": # Agora este bloco será alcançado!
         st.header("📦 Gestão de Estoque Inteligente")
         
-        # --- ESTE É O BLOCO DE REGISTRO QUE DEVE APARECER ---
         st.subheader("➕ Cadastro de Peças")
-        
-        # Criando o formulário explicitamente
         with st.form("meu_formulario_estoque"):
             c1, c2 = st.columns(2)
             with c1:
@@ -188,8 +183,6 @@ else:
                 preco_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, format="%.2f")
             
             fornecedor = st.text_input("Fornecedor")
-            
-            # Botão de envio
             botao_salvar = st.form_submit_button("Salvar no Banco de Dados")
             
             if botao_salvar:
@@ -204,12 +197,8 @@ else:
                     conn.close()
                     st.success(f"Peça {nome_peca} salva com sucesso!")
                     st.rerun()
-                else:
-                    st.error("O nome da peça é obrigatório!")
 
         st.write("---")
-
-        # --- PAINEL DE ALERTAS ---
         st.subheader("🚨 Itens em Nível Crítico")
         conn = conectar()
         df_avisos = pd.read_sql_query("SELECT peca, quantidade, quantidade_minima FROM estoque WHERE quantidade <= quantidade_minima", conn)
@@ -223,56 +212,23 @@ else:
     elif aba == "Administração":
         if st.session_state.perfil == "Admin":
             st.header("⚙️ Painel de Controlo do Administrador")
-            
-            # Criamos abas para organizar as ferramentas do Admin
             tab_cad, tab_rel, tab_backup = st.tabs(["👥 Colaboradores", "📊 Relatórios", "🛡️ Segurança e Backup"])
             
             with tab_cad:
                 st.subheader("Registar Novo Profissional")
-                # (Aqui mantém o seu formulário de cadastro que já criámos)
                 with st.form("cad_colab"):
-                    nome_c = st.text_input("Nome do Profissional")
-                    email_c = st.text_input("E-mail de Acesso")
+                    nome_c = st.text_input("Nome")
+                    email_c = st.text_input("E-mail")
                     cargo_c = st.selectbox("Cargo", ["Mecânico", "Gerente"])
-                    st.write("Limitações de Acesso:")
-                    lim_nf = st.checkbox("Pode dispensar Nota Fiscal?")
-                    lim_logo = st.checkbox("Pode alterar Logo/Cores?")
-                    
                     if st.form_submit_button("Finalizar Registo"):
-                        # Chama a sua função de cadastrar_colaborador
                         st.success(f"Colaborador {nome_c} registado!")
 
-            with tab_rel:
-                st.subheader("📈 Relatórios de Fluxo de Caixa")
-                st.info("Módulo de inteligência de lucro em desenvolvimento.")
-                # No futuro, aqui puxaremos os cálculos de (Total - Peças - Comissão)
-
             with tab_backup:
-                st.subheader("🔐 Gestão de Backups e Criptografia")
-                st.write("""
-                Este sistema realiza backups diários automáticos para o nosso servidor privado. 
-                Como medida extra de segurança, pode descarregar uma cópia local criptografada.
-                """)
-                
-                # Lógica para descarregar o ficheiro .db
+                st.subheader("🔐 Backups")
                 db_file = 'oficina_mecanica.db'
                 if os.path.exists(db_file):
                     with open(db_file, "rb") as f:
-                        st.download_button(
-                            label="📥 Descarregar Backup Completo (DB)",
-                            data=f,
-                            file_name="backup_oficina_seguro.db",
-                            mime="application/octet-stream",
-                            help="O ficheiro contém todos os dados de clientes, peças e comissões."
-                        )
-                else:
-                    st.error("Ficheiro de base de dados não encontrado para backup.")
-                
-                st.write("---")
-                st.success("🔒 Envio para a nuvem: Ativo (Status: 100% Criptografado)")
-
-        else:
-            st.error("Acesso restrito apenas ao Administrador Geral.")
+                        st.download_button("📥 Baixar Backup DB", f, file_name="backup_oficina.db")
 
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
