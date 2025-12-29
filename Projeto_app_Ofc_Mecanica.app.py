@@ -174,61 +174,50 @@ else:
     elif aba == "Estoque":
         st.header("📦 Gestão de Estoque Inteligente")
         
-        # 1. FORMULÁRIO DE REGISTRO (Agora sempre visível)
-        st.subheader("➕ Registrar Nova Peça ou Reposição")
-        with st.form("form_registro_estoque", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                nome_peca = st.text_input("Nome da Peça (Ex: Pastilha de Freio)")
-                qtd_atual = st.number_input("Quantidade Atual em Estoque", min_value=0, step=1)
-                qtd_min = st.number_input("Estoque Mínimo (Gatilho de Alerta)", min_value=1, step=1)
-            with col2:
-                preco_compra = st.number_input("Valor de Compra (R$)", min_value=0.0, format="%.2f")
-                fornecedor = st.text_input("Fornecedor / Loja")
-                prazo = st.text_input("Prazo de Entrega (Ex: 2 dias)")
+        # --- ESTE É O BLOCO DE REGISTRO QUE DEVE APARECER ---
+        st.subheader("➕ Cadastro de Peças")
+        
+        # Criando o formulário explicitamente
+        with st.form("meu_formulario_estoque"):
+            c1, c2 = st.columns(2)
+            with c1:
+                nome_peca = st.text_input("Nome da Peça")
+                qtd_atual = st.number_input("Quantidade em Estoque", min_value=0, step=1)
+            with c2:
+                qtd_minima = st.number_input("Quantidade Mínima (Alerta)", min_value=1, step=1)
+                preco_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, format="%.2f")
             
-            if st.form_submit_button("💾 Salvar no Inventário"):
+            fornecedor = st.text_input("Fornecedor")
+            
+            # Botão de envio
+            botao_salvar = st.form_submit_button("Salvar no Banco de Dados")
+            
+            if botao_salvar:
                 if nome_peca:
                     conn = conectar()
                     cursor = conn.cursor()
-                    try:
-                        cursor.execute("""
-                            INSERT INTO estoque (peca, quantidade, quantidade_minima, valor_compra, fornecedor, prazo_entrega_medio)
-                            VALUES (?, ?, ?, ?, ?, ?)""", 
-                            (nome_peca, qtd_atual, qtd_min, preco_compra, fornecedor, prazo))
-                        conn.commit()
-                        st.success(f"✅ Sucesso! {nome_peca} foi registrado.")
-                        st.rerun() # Atualiza a tela para mostrar o novo item na lista
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
-                    finally:
-                        conn.close()
+                    cursor.execute("""
+                        INSERT INTO estoque (peca, quantidade, quantidade_minima, valor_compra, fornecedor)
+                        VALUES (?, ?, ?, ?, ?)""", 
+                        (nome_peca, qtd_atual, qtd_minima, preco_compra, fornecedor))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"Peça {nome_peca} salva com sucesso!")
+                    st.rerun()
                 else:
-                    st.warning("O nome da peça é obrigatório.")
+                    st.error("O nome da peça é obrigatório!")
 
         st.write("---")
 
-        # 2. PAINEL DE ALERTAS (MARGEM VERMELHA)
-        st.subheader("🚨 Alertas de Margem Vermelha")
+        # --- PAINEL DE ALERTAS ---
+        st.subheader("🚨 Itens em Nível Crítico")
         conn = conectar()
-        df_alertas = pd.read_sql_query("SELECT peca, quantidade, quantidade_minima FROM estoque WHERE quantidade <= quantidade_minima", conn)
-        
-        if not df_alertas.empty:
-            for _, row in df_alertas.iterrows():
-                st.error(f"**REPOSIÇÃO NECESSÁRIA:** {row['peca']} (Restam: {row['quantidade']} | Mínimo: {row['quantidade_minima']})")
+        df_avisos = pd.read_sql_query("SELECT peca, quantidade, quantidade_minima FROM estoque WHERE quantidade <= quantidade_minima", conn)
+        if not df_avisos.empty:
+            st.warning(f"Existem {len(df_avisos)} itens precisando de reposição!")
+            st.dataframe(df_avisos, use_container_width=True)
         else:
-            st.success("Níveis de estoque normais.")
-
-        st.write("---")
-
-        # 3. LISTAGEM COMPLETA E INTELIGÊNCIA DE PREÇOS
-        st.subheader("📊 Inventário e Comparativo de Preços")
-        df_completo = pd.read_sql_query("SELECT peca, quantidade, valor_compra, fornecedor, prazo_entrega_medio FROM estoque ORDER BY valor_compra ASC", conn)
-        
-        if not df_completo.empty:
-            st.dataframe(df_completo, use_container_width=True, hide_index=True)
-        else:
-            st.info("O estoque está vazio. Use o formulário acima para começar.")
+            st.success("Estoque em dia!")
         conn.close()
 
     elif aba == "Administração":
