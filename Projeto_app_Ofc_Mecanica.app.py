@@ -116,20 +116,40 @@ else:
         st.write("Selecione uma opção no menu lateral para começar.")
 
     elif aba == "Ordens de Serviço":
-        st.header("📋 Gestão de Ordens de Serviço")
-        if st.session_state.perfil == "Admin":
-            st.subheader("Solicitações de Peças Pendentes")
-            # Aqui listaria as OS para aprovação com o cálculo de comissão
-            st.info("Aguardando novas solicitações dos mecânicos...")
-        else:
-            st.subheader("Minhas Atividades")
+        st.header("📋 Minhas Ordens de Serviço")
+        
+        # Opção para abrir nova OS
+        with st.expander("➕ Abrir Nova Ordem de Serviço"):
             with st.form("nova_os"):
-                st.write("Registrar Novo Serviço")
-                carro = st.text_input("Modelo do Carro")
+                modelo = st.text_input("Modelo do Veículo")
                 placa = st.text_input("Placa")
-                pecas = st.text_area("Peças Sugeridas (Descreva detalhadamente)")
-                if st.form_submit_button("Enviar para Orçamento"):
-                    st.success("Solicitação enviada ao Administrador!")
+                ano = st.text_input("Ano")
+                problema = st.text_area("Descrição do Defeito (Laudo Técnico)")
+                
+                st.write("---")
+                st.write("🔧 Solicitação de Peças")
+                # Simulando o botão "+" (No Streamlit, usamos uma área de texto ou lista)
+                pecas_pedidas = st.text_area("Liste as peças e marcas sugeridas (Ex: Pastilha Bosch - 2 un)")
+                
+                enviar = st.form_submit_button("Enviar para Aprovação do Admin")
+                if enviar:
+                    conn = conectar()
+                    cursor = conn.cursor()
+                    # Salva a OS com status 'Pendente'
+                    cursor.execute("""INSERT INTO ordens_servico 
+                        (carro_modelo, carro_placa, carro_ano, descricao_problema, pecas_sugeridas_mecanico, id_mecanico, status_solicitacao) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""", 
+                        (modelo, placa, ano, problema, pecas_pedidas, st.session_state.nome_usuario, "Pendente"))
+                    conn.commit()
+                    conn.close()
+                    st.success("Ordem de Serviço enviada com sucesso!")
+
+        # Lista de serviços do mecânico
+        st.subheader("Meus Trabalhos Atuais")
+        conn = conectar()
+        df = pd.read_sql_query(f"SELECT carro_modelo, carro_placa, status_solicitacao, valor_comissao FROM ordens_servico", conn)
+        conn.close()
+        st.table(df)
 
     elif aba == "Estoque":
         st.header("📦 Controle de Peças")
