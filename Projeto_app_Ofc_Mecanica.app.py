@@ -75,22 +75,36 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.perfil = None
 
+# --- TELA DE LOGIN ATUALIZADA ---
 if not st.session_state.logado:
-    # --- TELA DE LOGIN ---
-    st.title("🔐 Acesso ao Sistema - OficinaPro")
-    col1, col2 = st.columns(2)
-    with col1:
-        user = st.text_input("Usuário/E-mail")
-        pw = st.text_input("Senha", type="password")
-        if st.button("Entrar"):
-            if user == ADMIN_USER and pw == ADMIN_PASS:
+    st.title("🔐 Acesso OficinaPro")
+    user_input = st.text_input("E-mail")
+    senha_input = st.text_input("Senha", type="password")
+    
+    if st.button("Entrar"):
+        # 1. Verifica se é você (O Dono/Admin Geral)
+        if user_input == ADMIN_USER and senha_input == ADMIN_PASS:
+            st.session_state.logado = True
+            st.session_state.perfil = "Admin"
+            st.rerun()
+        
+        # 2. Se não for o admin do Secrets, busca no Banco de Dados
+        else:
+            conn = conectar()
+            cursor = conn.cursor()
+            hash_da_senha = hash_senha(senha_input)
+            cursor.execute("SELECT nivel_acesso, nome FROM usuarios WHERE email = ? AND senha_hash = ?", 
+                           (user_input, hash_da_senha))
+            resultado = cursor.fetchone()
+            conn.close()
+
+            if resultado:
                 st.session_state.logado = True
-                st.session_state.perfil = "Admin"
+                st.session_state.perfil = resultado[0] # 'Mecanico' ou 'Gerente'
+                st.session_state.nome_usuario = resultado[1]
                 st.rerun()
             else:
-                st.error("Credenciais inválidas ou acesso negado.")
-    with col2:
-        st.info("Sistema de uso restrito a colaboradores autorizados.")
+                st.error("E-mail ou senha incorretos.")
 
 else:
     # --- DASHBOARD PRINCIPAL ---
