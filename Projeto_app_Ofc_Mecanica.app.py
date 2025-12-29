@@ -174,59 +174,61 @@ else:
     elif aba == "Estoque":
         st.header("📦 Gestão de Estoque Inteligente")
         
-        # 1. Painel de Alertas (Margem Vermelha)
-        st.subheader("🚨 Alertas de Reposição (Margem Vermelha)")
-        
+        # 1. FORMULÁRIO DE REGISTRO (Agora sempre visível)
+        st.subheader("➕ Registrar Nova Peça ou Reposição")
+        with st.form("form_registro_estoque", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                nome_peca = st.text_input("Nome da Peça (Ex: Pastilha de Freio)")
+                qtd_atual = st.number_input("Quantidade Atual em Estoque", min_value=0, step=1)
+                qtd_min = st.number_input("Estoque Mínimo (Gatilho de Alerta)", min_value=1, step=1)
+            with col2:
+                preco_compra = st.number_input("Valor de Compra (R$)", min_value=0.0, format="%.2f")
+                fornecedor = st.text_input("Fornecedor / Loja")
+                prazo = st.text_input("Prazo de Entrega (Ex: 2 dias)")
+            
+            if st.form_submit_button("💾 Salvar no Inventário"):
+                if nome_peca:
+                    conn = conectar()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("""
+                            INSERT INTO estoque (peca, quantidade, quantidade_minima, valor_compra, fornecedor, prazo_entrega_medio)
+                            VALUES (?, ?, ?, ?, ?, ?)""", 
+                            (nome_peca, qtd_atual, qtd_min, preco_compra, fornecedor, prazo))
+                        conn.commit()
+                        st.success(f"✅ Sucesso! {nome_peca} foi registrado.")
+                        st.rerun() # Atualiza a tela para mostrar o novo item na lista
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
+                    finally:
+                        conn.close()
+                else:
+                    st.warning("O nome da peça é obrigatório.")
+
+        st.write("---")
+
+        # 2. PAINEL DE ALERTAS (MARGEM VERMELHA)
+        st.subheader("🚨 Alertas de Margem Vermelha")
         conn = conectar()
-        # Busca itens onde a quantidade é menor ou igual ao mínimo
-        query_alerta = "SELECT peca, quantidade, quantidade_minima, fornecedor FROM estoque WHERE quantidade <= quantidade_minima"
-        df_alertas = pd.read_sql_query(query_alerta, conn)
+        df_alertas = pd.read_sql_query("SELECT peca, quantidade, quantidade_minima FROM estoque WHERE quantidade <= quantidade_minima", conn)
         
         if not df_alertas.empty:
-            for index, row in df_alertas.iterrows():
-                st.error(f"**ALERTA:** A peça '{row['peca']}' atingiu o nível crítico! Restam apenas {row['quantidade']} unidades. (Mínimo: {row['quantidade_minima']})")
-                st.info(f"💡 Último fornecedor: {row['fornecedor']}")
+            for _, row in df_alertas.iterrows():
+                st.error(f"**REPOSIÇÃO NECESSÁRIA:** {row['peca']} (Restam: {row['quantidade']} | Mínimo: {row['quantidade_minima']})")
         else:
-            st.success("✅ Todos os itens estão com níveis de estoque saudáveis.")
+            st.success("Níveis de estoque normais.")
 
         st.write("---")
 
-        # 2. Cadastro e Atualização de Peças
-        with st.expander("➕ Adicionar/Atualizar Peça no Estoque"):
-            with st.form("form_estoque"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    nome_peca = st.text_input("Nome da Peça")
-                    qtd_atual = st.number_input("Quantidade em Estoque", min_value=0)
-                    qtd_min = st.number_input("Quantidade Mínima (Alerta)", min_value=1)
-                with col2:
-                    preco_compra = st.number_input("Preço de Compra (R$)", min_value=0.0, format="%.2f")
-                    fornecedor = st.text_input("Fornecedor / Loja")
-                    prazo = st.text_input("Prazo de Entrega Médio")
-                
-                if st.form_submit_button("Registrar no Sistema"):
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO estoque (peca, quantidade, quantidade_minima, valor_compra, fornecedor, prazo_entrega_medio)
-                        VALUES (?, ?, ?, ?, ?, ?)""", 
-                        (nome_peca, qtd_atual, qtd_min, preco_compra, fornecedor, prazo))
-                    conn.commit()
-                    st.success(f"Peça {nome_peca} adicionada ao inventário!")
-                    st.rerun()
-
-        st.write("---")
-
-        # 3. Relatório de Inteligência de Preços (Onde é mais barato?)
-        st.subheader("📊 Onde comprar mais barato?")
-        query_completa = "SELECT peca, valor_compra, fornecedor, prazo_entrega_medio FROM estoque ORDER BY valor_compra ASC"
-        df_completo = pd.read_sql_query(query_completa, conn)
+        # 3. LISTAGEM COMPLETA E INTELIGÊNCIA DE PREÇOS
+        st.subheader("📊 Inventário e Comparativo de Preços")
+        df_completo = pd.read_sql_query("SELECT peca, quantidade, valor_compra, fornecedor, prazo_entrega_medio FROM estoque ORDER BY valor_compra ASC", conn)
         
         if not df_completo.empty:
-            # Mostra a tabela completa para o Admin comparar
             st.dataframe(df_completo, use_container_width=True, hide_index=True)
         else:
-            st.write("Nenhuma peça cadastrada ainda.")
-            
+            st.info("O estoque está vazio. Use o formulário acima para começar.")
         conn.close()
 
     elif aba == "Administração":
