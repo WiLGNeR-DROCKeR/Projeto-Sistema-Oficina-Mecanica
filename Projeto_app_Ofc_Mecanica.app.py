@@ -115,41 +115,61 @@ else:
         st.header("Bem-vindo ao OficinaPro")
         st.write("Selecione uma opção no menu lateral para começar.")
 
-    elif aba == "Ordens de Serviço":
-        st.header("📋 Minhas Ordens de Serviço")
-        
-        # Opção para abrir nova OS
-        with st.expander("➕ Abrir Nova Ordem de Serviço"):
-            with st.form("nova_os"):
-                modelo = st.text_input("Modelo do Veículo")
-                placa = st.text_input("Placa")
-                ano = st.text_input("Ano")
-                problema = st.text_area("Descrição do Defeito (Laudo Técnico)")
-                
-                st.write("---")
-                st.write("🔧 Solicitação de Peças")
-                # Simulando o botão "+" (No Streamlit, usamos uma área de texto ou lista)
-                pecas_pedidas = st.text_area("Liste as peças e marcas sugeridas (Ex: Pastilha Bosch - 2 un)")
-                
-                enviar = st.form_submit_button("Enviar para Aprovação do Admin")
-                if enviar:
-                    conn = conectar()
-                    cursor = conn.cursor()
-                    # Salva a OS com status 'Pendente'
-                    cursor.execute("""INSERT INTO ordens_servico 
-                        (carro_modelo, carro_placa, carro_ano, descricao_problema, pecas_sugeridas_mecanico, id_mecanico, status_solicitacao) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)""", 
-                        (modelo, placa, ano, problema, pecas_pedidas, st.session_state.nome_usuario, "Pendente"))
-                    conn.commit()
-                    conn.close()
-                    st.success("Ordem de Serviço enviada com sucesso!")
+    else:
+            # --- INÍCIO DA NOVA TELA DO MECÂNICO ---
+            st.subheader(f"Área Técnica - Mecânico: {st.session_state.nome_usuario}")
+            
+            # 1. Formulário para abrir nova Ordem de Serviço
+            with st.expander("➕ Abrir Nova Ordem de Serviço (Laudo e Peças)"):
+                with st.form("form_nova_os"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        modelo = st.text_input("Modelo do Veículo")
+                    with col2:
+                        placa = st.text_input("Placa")
+                    with col3:
+                        ano = st.text_input("Ano")
+                    
+                    problema = st.text_area("Descrição do Defeito / Diagnóstico Técnico")
+                    pecas_sugeridas = st.text_area("Peças Necessárias e Marcas Sugeridas (Ex: 2x Amortecedor Monroe)")
+                    
+                    if st.form_submit_button("Enviar para Aprovação do Administrador"):
+                        if modelo and placa and problema:
+                            conn = conectar()
+                            cursor = conn.cursor()
+                            try:
+                                cursor.execute("""
+                                    INSERT INTO ordens_servico 
+                                    (carro_modelo, carro_placa, carro_ano, descricao_problema, 
+                                     pecas_sugeridas_mecanico, id_mecanico, status_solicitacao) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)""", 
+                                    (modelo, placa, ano, problema, pecas_sugeridas, st.session_state.nome_usuario, "Pendente"))
+                                conn.commit()
+                                st.success("✅ Ordem de Serviço registrada! Aguarde a liberação das peças pelo Admin.")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar: {e}")
+                            finally:
+                                conn.close()
+                        else:
+                            st.warning("Por favor, preencha o Modelo, Placa e Diagnóstico.")
 
-        # Lista de serviços do mecânico
-        st.subheader("Meus Trabalhos Atuais")
-        conn = conectar()
-        df = pd.read_sql_query(f"SELECT carro_modelo, carro_placa, status_solicitacao, valor_comissao FROM ordens_servico", conn)
-        conn.close()
-        st.table(df)
+            st.write("---")
+            
+            # 2. Listagem de serviços para o mecânico acompanhar
+            st.subheader("🛠️ Meus Serviços em Andamento")
+            conn = conectar()
+            # Filtra apenas os serviços deste mecânico
+            query = f"SELECT id, carro_modelo, carro_placa, status_solicitacao, valor_comissao FROM ordens_servico WHERE id_mecanico = '{st.session_state.nome_usuario}'"
+            df_servicos = pd.read_sql_query(query, conn)
+            conn.close()
+
+            if not df_servicos.empty:
+                # Melhora o visual da tabela
+                df_servicos.columns = ["ID", "Veículo", "Placa", "Status Peças", "Minha Comissão (R$)"]
+                st.dataframe(df_servicos, use_container_width=True, hide_index=True)
+            else:
+                st.info("Você ainda não possui ordens de serviço registradas.")
+            # --- FIM DA NOVA TELA DO MECÂNICO ---
 
     elif aba == "Estoque":
         st.header("📦 Controle de Peças")
