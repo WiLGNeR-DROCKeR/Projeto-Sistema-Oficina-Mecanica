@@ -41,4 +41,4 @@ pip install streamlit pandas
 # Executar o sistema
 streamlit run app.py
 
-Desenvolvido por [Wilgner Sousa] Estudante de Análise e Desenvolvimento de Sistemas [Meu LinkedIn]
+Desenvolvido por [Wilgner Sousa] Estudante de Análise e Desenvolvimento de Sistemas [Meu LinkedIn: https://www.linkedin.com/in/wilgner-sousa-566bb3354/]
